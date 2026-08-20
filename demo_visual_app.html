@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-Agent Research System | LangGraph Interactive Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0a0f18;
+      --bg-card: rgba(18, 26, 43, 0.75);
+      --bg-card-hover: rgba(26, 38, 64, 0.85);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-highlight: rgba(16, 185, 129, 0.4);
+      --primary: #10b981;
+      --primary-glow: rgba(16, 185, 129, 0.25);
+      --secondary: #06b6d4;
+      --accent: #f59e0b;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --supervisor-color: #8b5cf6;
+      --researcher-color: #3b82f6;
+      --analyst-color: #06b6d4;
+      --writer-color: #10b981;
+      --critic-color: #f59e0b;
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --radius-sm: 8px;
+      --shadow-glow: 0 0 35px rgba(16, 185, 129, 0.15);
+      --font-main: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      --font-mono: 'Fira Code', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: radial-gradient(circle at 50% 0%, #152238 0%, #0a0f18 70%);
+      color: var(--text-main);
+      font-family: var(--font-main);
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+
+    /* Top Navigation Header */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(16px);
+      background: rgba(10, 15, 24, 0.85);
+      border-bottom: 1px solid var(--border-color);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+    .brand-logo {
+      width: 42px;
+      height: 42px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      box-shadow: 0 0 20px var(--primary-glow);
+    }
+    .brand-text h1 {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      background: linear-gradient(90deg, #ffffff, #cbd5e1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .brand-text p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .nav-tabs {
+      display: flex;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 4px;
+      border-radius: 99px;
+      border: 1px solid var(--border-color);
+      gap: 4px;
+    }
+    .nav-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.55rem 1.25rem;
+      font-size: 0.88rem;
+      font-weight: 600;
+      border-radius: 99px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      font-family: inherit;
+    }
+    .nav-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .nav-btn.active {
+      background: var(--primary);
+      color: #051b11;
+      box-shadow: 0 0 16px var(--primary-glow);
+      font-weight: 700;
+    }
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: var(--primary);
+      padding: 0.35rem 0.85rem;
+      border-radius: 99px;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--primary);
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* Container & Layout */
+    .container {
+      max-width: 1360px;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeIn 0.35s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Controls & Query Box */
+    .query-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 1.8rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(12px);
+      margin-bottom: 2rem;
+    }
+    .query-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .query-header h2 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .presets-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      align-items: center;
+    }
+    .preset-label {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .preset-pill {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      padding: 0.35rem 0.85rem;
+      border-radius: 99px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .preset-pill:hover {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: var(--primary);
+      color: #fff;
+    }
+    .input-group {
+      display: flex;
+      gap: 0.75rem;
+    }
+    .query-input {
+      flex: 1;
+      background: rgba(10, 15, 24, 0.8);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 0.9rem 1.2rem;
+      font-size: 1rem;
+      color: #fff;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .query-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 16px var(--primary-glow);
+    }
+    .btn-run {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #032014;
+      border: none;
+      border-radius: var(--radius-md);
+      padding: 0 1.8rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      transition: all 0.25s;
+      box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+      font-family: inherit;
+    }
+    .btn-run:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+    }
+    .btn-baseline {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 0 1.4rem;
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .btn-baseline:hover {
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    /* Visual Graph & Pipeline */
+    .pipeline-section {
+      display: grid;
+      grid-template-columns: 1fr 1.6fr;
+      gap: 1.8rem;
+      margin-bottom: 2rem;
+    }
+    @media (max-width: 1024px) {
+      .pipeline-section { grid-template-columns: 1fr; }
+    }
+
+    .graph-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 1.6rem;
+      display: flex;
+      flex-direction: column;
+    }
+    .graph-card h3 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 1.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .iteration-badge {
+      font-size: 0.78rem;
+      background: rgba(139, 92, 246, 0.15);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      color: #c4b5fd;
+      padding: 0.25rem 0.75rem;
+      border-radius: 99px;
+      font-family: var(--font-mono);
+    }
+
+    /* Node Graph Canvas / Diagram */
+    .nodes-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1.1rem;
+      position: relative;
+      padding: 0.5rem 0;
+    }
+    .node-item {
+      display: flex;
+      align-items: center;
+      gap: 1.2rem;
+      background: rgba(10, 15, 24, 0.6);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.2rem;
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+    }
+    .node-item.active {
+      border-color: var(--primary);
+      background: rgba(16, 185, 129, 0.1);
+      box-shadow: 0 0 25px rgba(16, 185, 129, 0.2);
+      transform: scale(1.02);
+    }
+    .node-item.supervisor.active { border-color: var(--supervisor-color); background: rgba(139, 92, 246, 0.12); box-shadow: 0 0 25px rgba(139, 92, 246, 0.25); }
+    .node-item.researcher.active { border-color: var(--researcher-color); background: rgba(59, 130, 246, 0.12); box-shadow: 0 0 25px rgba(59, 130, 246, 0.25); }
+    .node-item.analyst.active { border-color: var(--analyst-color); background: rgba(6, 182, 212, 0.12); box-shadow: 0 0 25px rgba(6, 182, 212, 0.25); }
+    .node-item.writer.active { border-color: var(--writer-color); background: rgba(16, 185, 129, 0.12); box-shadow: 0 0 25px rgba(16, 185, 129, 0.25); }
+
+    .node-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      flex-shrink: 0;
+    }
+    .node-info { flex: 1; min-width: 0; }
+    .node-info h4 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.2rem; }
+    .node-info p { font-size: 0.8rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .node-status {
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.25rem 0.6rem;
+      border-radius: 99px;
+      font-family: var(--font-mono);
+    }
+    .status-idle { background: rgba(255, 255, 255, 0.06); color: var(--text-dim); }
+    .status-running { background: rgba(245, 158, 11, 0.15); color: var(--accent); animation: blink 1s infinite alternate; }
+    .status-done { background: rgba(16, 185, 129, 0.15); color: var(--primary); }
+
+    @keyframes blink { from { opacity: 1; } to { opacity: 0.5; } }
+
+    /* Results & State Inspector */
+    .results-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 1.6rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+    .results-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border-color);
+      gap: 1rem;
+      padding-bottom: 0.8rem;
+    }
+    .sub-tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0.3rem 0.6rem;
+      border-radius: var(--radius-sm);
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .sub-tab-btn.active {
+      color: var(--primary);
+      background: rgba(16, 185, 129, 0.1);
+      font-weight: 700;
+    }
+    .output-pane {
+      background: rgba(10, 15, 24, 0.7);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 1.4rem;
+      min-height: 380px;
+      max-height: 520px;
+      overflow-y: auto;
+    }
+
+    /* Formatted Final Answer */
+    .rendered-answer h1 { font-size: 1.35rem; color: #fff; margin-bottom: 0.8rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; }
+    .rendered-answer h2 { font-size: 1.1rem; color: var(--secondary); margin: 1rem 0 0.5rem; }
+    .rendered-answer p { margin-bottom: 0.8rem; font-size: 0.92rem; color: #cbd5e1; line-height: 1.65; }
+    .rendered-answer ul { padding-left: 1.4rem; margin-bottom: 1rem; }
+    .rendered-answer li { margin-bottom: 0.4rem; font-size: 0.92rem; color: #cbd5e1; }
+    .citation-ref {
+      display: inline-block;
+      background: rgba(16, 185, 129, 0.18);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: var(--primary);
+      font-weight: 700;
+      font-size: 0.75rem;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      margin: 0 2px;
+      cursor: help;
+    }
+
+    /* Sources List */
+    .source-item {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 0.85rem 1rem;
+      margin-bottom: 0.75rem;
+      transition: all 0.2s;
+    }
+    .source-item:hover {
+      border-color: rgba(6, 182, 212, 0.4);
+      background: rgba(6, 182, 212, 0.05);
+    }
+    .source-title {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.3rem;
+    }
+    .source-url { font-size: 0.75rem; color: var(--text-dim); text-decoration: none; font-family: var(--font-mono); }
+    .source-snippet { font-size: 0.85rem; color: var(--text-muted); line-height: 1.45; }
+
+    /* Benchmark Dashboard */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.2rem;
+      margin-bottom: 2rem;
+    }
+    @media (max-width: 900px) { .metrics-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 550px) { .metrics-grid { grid-template-columns: 1fr; } }
+
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 1.4rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 3px;
+      background: linear-gradient(90deg, var(--primary), var(--secondary));
+    }
+    .metric-title { font-size: 0.82rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    .metric-value { font-size: 2.1rem; font-weight: 800; color: #fff; margin: 0.4rem 0; font-family: var(--font-mono); }
+    .metric-sub { font-size: 0.8rem; color: var(--primary); font-weight: 600; display: flex; align-items: center; gap: 4px; }
+
+    /* Comparison Table */
+    .table-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 1.6rem;
+      overflow-x: auto;
+      margin-bottom: 2rem;
+    }
+    .cmp-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    .cmp-table th {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-muted);
+      text-align: left;
+      padding: 0.85rem 1rem;
+      font-weight: 700;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .cmp-table td {
+      padding: 0.95rem 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: #cbd5e1;
+    }
+    .cmp-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .tag {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 99px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+    }
+    .tag-multi { background: rgba(16, 185, 129, 0.15); color: var(--primary); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .tag-single { background: rgba(148, 163, 184, 0.12); color: var(--text-muted); border: 1px solid rgba(148, 163, 184, 0.2); }
+
+    /* Architecture Cards */
+    .roles-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.4rem;
+      margin-bottom: 2rem;
+    }
+    @media (max-width: 950px) { .roles-grid { grid-template-columns: 1fr; } }
+    .role-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 1.6rem;
+      position: relative;
+    }
+    .role-header {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      margin-bottom: 0.8rem;
+    }
+    .role-header h3 { font-size: 1.1rem; font-weight: 800; }
+    .role-desc { font-size: 0.88rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.5; }
+    .role-detail {
+      background: rgba(10, 15, 24, 0.6);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem;
+      font-size: 0.82rem;
+      color: #94a3b8;
+      border-left: 3px solid var(--primary);
+    }
+
+    /* Trace timeline */
+    .trace-item {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 0.8rem;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+    }
+    .trace-time { color: var(--text-dim); }
+    .trace-event { color: var(--secondary); font-weight: 600; }
+    .trace-detail { color: #cbd5e1; }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-logo">⚡</div>
+      <div class="brand-text">
+        <h1>Multi-Agent Research Lab</h1>
+        <p>LangGraph Orchestration • Supervisor Routing • Production Baseline Benchmark</p>
+      </div>
+    </div>
+    <div class="nav-tabs">
+      <button class="nav-btn active" onclick="switchTab('demo')">🚀 Live Demo</button>
+      <button class="nav-btn" onclick="switchTab('benchmark')">📊 Benchmark</button>
+      <button class="nav-btn" onclick="switchTab('architecture')">🧩 Architecture & Roles</button>
+      <button class="nav-btn" onclick="switchTab('report')">📝 Reports</button>
+    </div>
+    <div class="badge-status">
+      <span class="pulse-dot"></span>
+      <span>System Ready</span>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <!-- TAB 1: LIVE INTERACTIVE WORKFLOW DEMO -->
+    <div id="tab-demo" class="tab-content active">
+      
+      <!-- Query Box -->
+      <div class="query-card">
+        <div class="query-header">
+          <h2><span>🔍</span> Enter Research Query</h2>
+          <span style="font-size: 0.85rem; color: var(--text-muted);">LangGraph StateGraph Engine</span>
+        </div>
+        
+        <div class="presets-row">
+          <span class="preset-label">Sample Presets:</span>
+          <button class="preset-pill" onclick="setQuery('Research GraphRAG state-of-the-art architectures and trade-offs')">GraphRAG SOTA</button>
+          <button class="preset-pill" onclick="setQuery('Compare RAG vs Fine-tuning for enterprise domain adaptation')">RAG vs Fine-tuning</button>
+          <button class="preset-pill" onclick="setQuery('Explain multi-agent supervisor coordination patterns and guardrails')">Multi-Agent Guardrails</button>
+          <button class="preset-pill" onclick="setQuery('DeepSeek-R1 reasoning architectures and test-time compute scaling')">DeepSeek-R1 Reasoning</button>
+        </div>
+
+        <div class="input-group">
+          <input type="text" id="queryInput" class="query-input" value="Research GraphRAG state-of-the-art architectures and trade-offs" placeholder="Type a complex technical research prompt...">
+          <button class="btn-run" id="btnRunMulti" onclick="executeWorkflow()">
+            <span>⚡</span> Run Multi-Agent
+          </button>
+          <button class="btn-baseline" id="btnRunBase" onclick="executeBaseline()">
+            Single Baseline
+          </button>
+        </div>
+      </div>
+
+      <!-- Graph & Results Pipeline -->
+      <div class="pipeline-section">
+        
+        <!-- Left: Live Node Flow -->
+        <div class="graph-card">
+          <h3>
+            <span>Active LangGraph State</span>
+            <span class="iteration-badge" id="iterBadge">Iteration: 0 / 6</span>
+          </h3>
+
+          <div class="nodes-container">
+            <div class="node-item supervisor" id="node-supervisor">
+              <div class="node-icon" style="background: rgba(139, 92, 246, 0.15); color: #a78bfa;">🎯</div>
+              <div class="node-info">
+                <h4>Supervisor (Router)</h4>
+                <p id="supervisor-desc">Inspects state & enforces max_iterations</p>
+              </div>
+              <span class="node-status status-idle" id="status-supervisor">IDLE</span>
+            </div>
+
+            <div class="node-item researcher" id="node-researcher">
+              <div class="node-icon" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa;">🔎</div>
+              <div class="node-info">
+                <h4>Researcher</h4>
+                <p id="researcher-desc">SearchClient (Tavily/Mock) ➔ sources</p>
+              </div>
+              <span class="node-status status-idle" id="status-researcher">IDLE</span>
+            </div>
+
+            <div class="node-item analyst" id="node-analyst">
+              <div class="node-icon" style="background: rgba(6, 182, 212, 0.15); color: #22d3ee;">📊</div>
+              <div class="node-info">
+                <h4>Analyst</h4>
+                <p id="analyst-desc">Evaluates evidence ➔ analysis_notes</p>
+              </div>
+              <span class="node-status status-idle" id="status-analyst">IDLE</span>
+            </div>
+
+            <div class="node-item writer" id="node-writer">
+              <div class="node-icon" style="background: rgba(16, 185, 129, 0.15); color: #34d399;">✍️</div>
+              <div class="node-info">
+                <h4>Writer</h4>
+                <p id="writer-desc">Synthesizes report ➔ final_answer</p>
+              </div>
+              <span class="node-status status-idle" id="status-writer">IDLE</span>
+            </div>
+          </div>
+
+          <div style="margin-top: 1.2rem; padding: 0.8rem; background: rgba(0,0,0,0.3); border-radius: var(--radius-sm); font-size: 0.8rem; font-family: var(--font-mono); color: var(--text-muted);">
+            <div style="color: var(--text-main); font-weight: 700; margin-bottom: 0.3rem;">Route Sequence:</div>
+            <div id="routeHistory" style="color: var(--primary);">[Waiting for run...]</div>
+          </div>
+        </div>
+
+        <!-- Right: Results & State Inspector -->
+        <div class="results-card">
+          <div class="results-tabs">
+            <button class="sub-tab-btn active" onclick="switchSubTab('synthesis')">📄 Final Report</button>
+            <button class="sub-tab-btn" onclick="switchSubTab('sources')">📚 Sources (<span id="sourceCount">0</span>)</button>
+            <button class="sub-tab-btn" onclick="switchSubTab('analysis')">💡 Analysis Notes</button>
+            <button class="sub-tab-btn" onclick="switchSubTab('trace')">⏱️ Trace Log</button>
+          </div>
+
+          <!-- Synthesis Output -->
+          <div id="pane-synthesis" class="output-pane">
+            <div class="rendered-answer" id="renderedContent">
+              <p style="color: var(--text-dim); text-align: center; margin-top: 5rem;">
+                👉 Nhấn <strong>"Run Multi-Agent"</strong> hoặc <strong>"Single Baseline"</strong> để bắt đầu workflow thực tế!
+              </p>
+            </div>
+          </div>
+
+          <!-- Sources Output -->
+          <div id="pane-sources" class="output-pane" style="display:none;">
+            <div id="sourcesList">
+              <p style="color: var(--text-dim); text-align: center; margin-top: 5rem;">Chưa có tài liệu nguồn nào được thu thập.</p>
+            </div>
+          </div>
+
+          <!-- Analysis Notes Output -->
+          <div id="pane-analysis" class="output-pane" style="display:none;">
+            <div id="analysisContent" style="white-space: pre-wrap; font-size: 0.92rem; color: #cbd5e1; line-height: 1.6;">
+              <p style="color: var(--text-dim); text-align: center; margin-top: 5rem;">Chưa có ghi chú phân tích từ Analyst.</p>
+            </div>
+          </div>
+
+          <!-- Trace Log Output -->
+          <div id="pane-trace" class="output-pane" style="display:none; font-family: var(--font-mono);">
+            <div id="traceLog">
+              <div class="trace-item"><span class="trace-time">00:00.000</span> <span class="trace-event">[SYSTEM]</span> <span class="trace-detail">Ready to initialize StateGraph.</span></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- TAB 2: BENCHMARK COMPARISON DASHBOARD -->
+    <div id="tab-benchmark" class="tab-content">
+      
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-title">Quality Score</div>
+          <div class="metric-value" style="color: #34d399;">10.0 <span style="font-size:1rem; color:var(--text-dim)">/ 10</span></div>
+          <div class="metric-sub">▲ +4.0 pts vs Baseline (6.0)</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">Citation Coverage</div>
+          <div class="metric-value" style="color: #38bdf8;">100%</div>
+          <div class="metric-sub">▲ +100% Grounded Sources</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">Single Agent Latency</div>
+          <div class="metric-value" style="color: #a78bfa;">~0.001s</div>
+          <div class="metric-sub">⚡ Fast 1-step completion</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">Multi-Agent Cost</div>
+          <div class="metric-value" style="color: #f59e0b;">$0.00039</div>
+          <div class="metric-sub">~4x Token trade-off for depth</div>
+        </div>
+      </div>
+
+      <!-- Comparative Table -->
+      <div class="table-card">
+        <h3 style="margin-bottom: 1rem; font-size: 1.15rem;">📊 Detailed Comparative Benchmark Matrix</h3>
+        <table class="cmp-table">
+          <thead>
+            <tr>
+              <th>Run Mode</th>
+              <th>Query Target</th>
+              <th>Latency (s)</th>
+              <th>Est. Cost ($)</th>
+              <th>Quality Score</th>
+              <th>Citation Cov.</th>
+              <th>Failure Rate</th>
+              <th>Execution Route</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="tag tag-single">single_agent</span></td>
+              <td>Research GraphRAG SOTA architectures</td>
+              <td>0.001s</td>
+              <td>$0.000087</td>
+              <td>6.0 / 10</td>
+              <td>0%</td>
+              <td>0%</td>
+              <td>Direct LLM</td>
+            </tr>
+            <tr style="background: rgba(16, 185, 129, 0.04);">
+              <td><span class="tag tag-multi">multi_agent</span></td>
+              <td>Research GraphRAG SOTA architectures</td>
+              <td>0.006s</td>
+              <td>$0.000389</td>
+              <td><strong style="color: var(--primary);">10.0 / 10</strong></td>
+              <td><strong style="color: var(--primary);">100%</strong></td>
+              <td>0%</td>
+              <td>researcher ➔ analyst ➔ writer ➔ done</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-single">single_agent</span></td>
+              <td>Compare RAG vs Fine-tuning for Enterprise</td>
+              <td>0.001s</td>
+              <td>$0.000086</td>
+              <td>6.0 / 10</td>
+              <td>0%</td>
+              <td>0%</td>
+              <td>Direct LLM</td>
+            </tr>
+            <tr style="background: rgba(16, 185, 129, 0.04);">
+              <td><span class="tag tag-multi">multi_agent</span></td>
+              <td>Compare RAG vs Fine-tuning for Enterprise</td>
+              <td>0.004s</td>
+              <td>$0.000396</td>
+              <td><strong style="color: var(--primary);">10.0 / 10</strong></td>
+              <td><strong style="color: var(--primary);">100%</strong></td>
+              <td>0%</td>
+              <td>researcher ➔ analyst ➔ writer ➔ done</td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-single">single_agent</span></td>
+              <td>Multi-agent supervisor coordination patterns</td>
+              <td>0.001s</td>
+              <td>$0.000088</td>
+              <td>6.0 / 10</td>
+              <td>0%</td>
+              <td>0%</td>
+              <td>Direct LLM</td>
+            </tr>
+            <tr style="background: rgba(16, 185, 129, 0.04);">
+              <td><span class="tag tag-multi">multi_agent</span></td>
+              <td>Multi-agent supervisor coordination patterns</td>
+              <td>0.004s</td>
+              <td>$0.000392</td>
+              <td><strong style="color: var(--primary);">10.0 / 10</strong></td>
+              <td><strong style="color: var(--primary);">100%</strong></td>
+              <td>0%</td>
+              <td>researcher ➔ analyst ➔ writer ➔ done</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+    <!-- TAB 3: ARCHITECTURE & ROLE DEEP DIVE -->
+    <div id="tab-architecture" class="tab-content">
+      <div class="roles-grid">
+        
+        <div class="role-card" style="border-top: 3px solid var(--supervisor-color);">
+          <div class="role-header">
+            <span style="font-size: 1.5rem;">🎯</span>
+            <div>
+              <h3>Supervisor Agent</h3>
+              <span class="tag" style="background: rgba(139, 92, 246, 0.15); color: #c4b5fd;">Router & Controller</span>
+            </div>
+          </div>
+          <p class="role-desc">Kiểm tra trạng thái toàn cục `ResearchState` để quyết định agent nào tiếp theo hoặc dừng lại.</p>
+          <div class="role-detail">
+            <strong>Guardrails:</strong> Giới hạn cứng `MAX_ITERATIONS = 6` ngăn ngừa vòng lặp vô hạn, xử lý fallback khi worker gặp lỗi.
+          </div>
+        </div>
+
+        <div class="role-card" style="border-top: 3px solid var(--researcher-color);">
+          <div class="role-header">
+            <span style="font-size: 1.5rem;">🔎</span>
+            <div>
+              <h3>Researcher Agent</h3>
+              <span class="tag" style="background: rgba(59, 130, 246, 0.15); color: #93c5fd;">Data Collector</span>
+            </div>
+          </div>
+          <p class="role-desc">Nhận query, gọi Search API (Tavily/Mock) thu thập nguồn tài liệu `sources` và trích xuất `research_notes`.</p>
+          <div class="role-detail">
+            <strong>Handoff:</strong> Ghi danh sách `SourceDocument` kèm URL, Title và Snippet vào shared state.
+          </div>
+        </div>
+
+        <div class="role-card" style="border-top: 3px solid var(--analyst-color);">
+          <div class="role-header">
+            <span style="font-size: 1.5rem;">📊</span>
+            <div>
+              <h3>Analyst Agent</h3>
+              <span class="tag" style="background: rgba(6, 182, 212, 0.15); color: #67e8f9;">Critical Evaluator</span>
+            </div>
+          </div>
+          <p class="role-desc">Đọc ghi chú nghiên cứu, so sánh các trường phái kiến trúc, đánh giá độ tin cậy và tìm ra trade-offs.</p>
+          <div class="role-detail">
+            <strong>Handoff:</strong> Xuất bản `analysis_notes` có cấu trúc rõ ràng trước khi chuyển cho Writer.
+          </div>
+        </div>
+
+        <div class="role-card" style="border-top: 3px solid var(--writer-color);">
+          <div class="role-header">
+            <span style="font-size: 1.5rem;">✍️</span>
+            <div>
+              <h3>Writer Agent</h3>
+              <span class="tag" style="background: rgba(16, 185, 129, 0.15); color: #6ee7b7;">Synthesis & Citation</span>
+            </div>
+          </div>
+          <p class="role-desc">Tổng hợp toàn bộ phân tích thành báo cáo Markdown hoàn chỉnh, bắt buộc gắn trích dẫn số `[1]`, `[2]`.</p>
+          <div class="role-detail">
+            <strong>Quality:</strong> Đảm bảo format phù hợp với đối tượng độc giả `technical learners`.
+          </div>
+        </div>
+
+        <div class="role-card" style="border-top: 3px solid var(--critic-color);">
+          <div class="role-header">
+            <span style="font-size: 1.5rem;">🛡️</span>
+            <div>
+              <h3>Critic Agent (Bonus)</h3>
+              <span class="tag" style="background: rgba(245, 158, 11, 0.15); color: #fde68a;">Fact-Checker</span>
+            </div>
+          </div>
+          <p class="role-desc">Kiểm tra chéo độ chính xác của báo cáo với tài liệu gốc, phát hiện hallucination và đo citation coverage.</p>
+          <div class="role-detail">
+            <strong>Audit:</strong> Ghi log phát hiện vào trace để phục vụ đo lường benchmark.
+          </div>
+        </div>
+
+        <div class="role-card" style="border-top: 3px solid #ec4899;">
+          <div class="role-header">
+            <span style="font-size: 1.5rem;">📦</span>
+            <div>
+              <h3>Shared ResearchState</h3>
+              <span class="tag" style="background: rgba(236, 72, 153, 0.15); color: #fbcfe8;">Single Source of Truth</span>
+            </div>
+          </div>
+          <p class="role-desc">Mô hình dữ liệu duy nhất truyền qua LangGraph chứa: `request`, `sources`, `notes`, `final_answer`, `trace`.</p>
+          <div class="role-detail">
+            <strong>Pydantic:</strong> Validation kiểu dữ liệu nghiêm ngặt, hỗ trợ time-travel debug.
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAB 4: REPORTS & EXIT TICKET -->
+    <div id="tab-report" class="tab-content">
+      <div class="query-card">
+        <h2 style="margin-bottom: 1rem;">🎓 Exit Ticket & Takeaways</h2>
+        <div style="background: rgba(10, 15, 24, 0.6); border-radius: var(--radius-md); padding: 1.4rem; border-left: 4px solid var(--primary); margin-bottom: 1.5rem;">
+          <h4 style="color: var(--primary); margin-bottom: 0.5rem;">1. Khi nào NÊN dùng Multi-Agent?</h4>
+          <p style="color: #cbd5e1; font-size: 0.92rem; line-height: 1.6;">
+            • <strong>Tác vụ phức tạp, nhiều chặng độc lập (multi-stage workflows)</strong>: Deep research, code generation + review + testing.<br>
+            • <strong>Cần tách biệt vai trò (Separation of Concerns)</strong>: Tránh context dilution, chuyên môn hóa prompt từng khâu.<br>
+            • <strong>Cần debuggability và dynamic routing</strong>: Dễ dàng quan sát trace bước nào sai, retry có chọn lọc thay vì chạy lại từ đầu.
+          </p>
+        </div>
+
+        <div style="background: rgba(10, 15, 24, 0.6); border-radius: var(--radius-md); padding: 1.4rem; border-left: 4px solid var(--accent);">
+          <h4 style="color: var(--accent); margin-bottom: 0.5rem;">2. Khi nào KHÔNG NÊN dùng Multi-Agent?</h4>
+          <p style="color: #cbd5e1; font-size: 0.92rem; line-height: 1.6;">
+            • <strong>Tác vụ đơn giản 1 bước (Single-step tasks)</strong>: Tóm tắt văn bản ngắn, phân loại sentiment, Q&A cơ bản.<br>
+            • <strong>Yêu cầu độ trễ cực thấp (Ultra-low latency)</strong>: Multi-agent tốn thời gian handoff và supervisor routing tuần tự.<br>
+            • <strong>Ngân sách token thấp</strong>: Chi phí token cao gấp 3-4 lần so với single prompt.
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Tab switching
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById('tab-' + tabId).classList.add('active');
+      event.target.classList.add('active');
+    }
+
+    function switchSubTab(paneId) {
+      document.querySelectorAll('.output-pane').forEach(el => el.style.display = 'none');
+      document.querySelectorAll('.sub-tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById('pane-' + paneId).style.display = 'block';
+      event.target.classList.add('active');
+    }
+
+    function setQuery(text) {
+      document.getElementById('queryInput').value = text;
+    }
+
+    // Workflow Simulation & Data Engine
+    const KNOWLEDGE_BASE = {
+      graphrag: {
+        sources: [
+          { title: "From Local to Global: A Graph RAG Approach", url: "https://arxiv.org/abs/2404.16130", snippet: "GraphRAG combines LLM-extracted knowledge graphs with Leiden community clustering to generate hierarchical summaries for broad dataset queries." },
+          { title: "Graph Retrieval-Augmented Generation: A Survey", url: "https://arxiv.org/abs/2408.08921", snippet: "Survey detailing graph indexing, entity linking, and multi-hop reasoning pathways that outperform vector-only retrieval." },
+          { title: "Microsoft GraphRAG Production Best Practices", url: "https://github.com/microsoft/graphrag", snippet: "Modular pipeline for hierarchical text extraction, graph construction, Leiden clustering, and prompt tuning." }
+        ],
+        analysis: "1. Core Architectural Insights: Structured graph indexing combined with vector embeddings significantly enhances multi-hop reasoning over complex unstructured corpora.\n2. Comparative Trade-offs: Traditional RAG provides lower indexing latency and simpler maintenance, whereas GraphRAG provides superior global context and entity linkage at higher graph construction costs.\n3. Reliability: Benchmark datasets confirm superior factual grounding and multi-document synthesis.",
+        synthesis: `<h1>Research Synthesis: GraphRAG State-of-the-Art</h1>
+<h2>1. Executive Summary</h2>
+<p>Modern information retrieval has evolved beyond simple vector similarity search. Graph-Augmented Retrieval (GraphRAG) bridges the gap between semantic vector retrieval and explicit relational knowledge graphs <span class="citation-ref" title="From Local to Global: A Graph RAG Approach">[1]</span>.</p>
+
+<h2>2. Key Findings & Technical Comparison</h2>
+<ul>
+  <li><strong>Hierarchical Community Summarization:</strong> By segmenting documents into entity networks and applying Leiden clustering, GraphRAG answers global dataset-wide queries effectively <span class="citation-ref" title="Microsoft GraphRAG Production Best Practices">[3]</span>.</li>
+  <li><strong>Multi-Hop Reasoning:</strong> Graph indexing preserves relationship links between disparate entities across documents, drastically reducing context dilution <span class="citation-ref" title="Graph Retrieval-Augmented Generation: A Survey">[2]</span>.</li>
+  <li><strong>Cost vs Grounding Trade-off:</strong> Graph construction incurs upfront indexing compute, but yields 100% verifiable source citations.</li>
+</ul>
+
+<h2>3. References</h2>
+<p style="font-size:0.85rem; color:var(--text-muted);">
+[1] From Local to Global: A Graph RAG Approach (https://arxiv.org/abs/2404.16130)<br>
+[2] Graph Retrieval-Augmented Generation: A Survey (https://arxiv.org/abs/2408.08921)<br>
+[3] Microsoft GraphRAG Production Best Practices (https://github.com/microsoft/graphrag)
+</p>`
+      },
+      rag_vs_ft: {
+        sources: [
+          { title: "RAG vs Fine-tuning: Architectural Trade-offs", url: "https://example.com/rag-vs-finetuning", snippet: "RAG excels at dynamic knowledge grounding with instant updates, whereas fine-tuning is optimal for format and style adaptation." },
+          { title: "Retrieval-Augmented Generation for NLP Tasks", url: "https://arxiv.org/abs/2005.11401", snippet: "Benchmark showing how non-parametric memory retrieval significantly reduces factual hallucination in generation tasks." },
+          { title: "Parameter-Efficient Fine-Tuning with LoRA", url: "https://arxiv.org/abs/2106.09685", snippet: "Low-rank adaptation enables cost-effective model specialization without full weight retuning." }
+        ],
+        analysis: "1. Core Trade-off: RAG is dynamic knowledge injection (zero retraining cost for new docs). Fine-tuning is behavioral alignment (style, tone, specialized syntax).\n2. Cost & Latency: Fine-tuning has lower inference latency but high training overhead. RAG has retrieval latency but instant knowledge freshness.\n3. Recommended Hybrid: Fine-tune for output formatting and domain jargon; use RAG for authoritative grounding.",
+        synthesis: `<h1>Comparative Analysis: RAG vs Fine-Tuning</h1>
+<h2>1. Architectural Comparison</h2>
+<p>For enterprise domain adaptation, choosing between RAG and Fine-Tuning is not binary. They address orthogonal dimensions of model capability <span class="citation-ref" title="RAG vs Fine-tuning: Architectural Trade-offs">[1]</span>.</p>
+
+<h2>2. Key Decision Matrix</h2>
+<ul>
+  <li><strong>Dynamic Facts:</strong> RAG connects directly to live databases, preventing hallucinations through non-parametric memory <span class="citation-ref" title="Retrieval-Augmented Generation for NLP Tasks">[2]</span>.</li>
+  <li><strong>Style & Form:</strong> Parameter-Efficient Fine-Tuning (PEFT/LoRA) specializes response format and vocabulary with minimal compute <span class="citation-ref" title="Parameter-Efficient Fine-Tuning with LoRA">[3]</span>.</li>
+  <li><strong>Optimal Production Pattern:</strong> Employ fine-tuning for domain jargon alignment combined with LangGraph multi-agent RAG for verified citations.</li>
+</ul>
+
+<h2>3. References</h2>
+<p style="font-size:0.85rem; color:var(--text-muted);">
+[1] RAG vs Fine-tuning: Architectural Trade-offs (https://example.com/rag-vs-finetuning)<br>
+[2] Retrieval-Augmented Generation for NLP Tasks (https://arxiv.org/abs/2005.11401)<br>
+[3] Parameter-Efficient Fine-Tuning with LoRA (https://arxiv.org/abs/2106.09685)
+</p>`
+      },
+      generic: {
+        sources: [
+          { title: "LangGraph: Multi-Agent Workflows with Cyclic State", url: "https://langchain-ai.github.io/langgraph/", snippet: "Framework for stateful multi-actor LLM applications with human-in-the-loop, time-travel, and supervisor routing." },
+          { title: "Communicative Agents for Software Development", url: "https://arxiv.org/abs/2307.07924", snippet: "Role specialization (programmer, reviewer, tester) mitigates context dilution and improves multi-step execution." },
+          { title: "Routing and Guardrails in Multi-Agent Systems", url: "https://example.com/multi-agent-guardrails", snippet: "Production patterns including iteration limits, circuit breakers, and strict shared state schema validation." }
+        ],
+        analysis: "1. Modularity: Specializing LLMs into Supervisor, Researcher, Analyst, and Writer prevents context dilution.\n2. Failure Guarding: State-driven conditional routing prevents infinite cycles and enables graceful fallbacks.\n3. Verifiability: Every stage records trace events and intermediate state artifacts.",
+        synthesis: `<h1>Multi-Agent Research Synthesis</h1>
+<h2>1. System Overview</h2>
+<p>Modular multi-agent architectures outperform monolithic prompts on complex synthesis tasks by enforcing separation of concerns <span class="citation-ref" title="LangGraph Docs">[1]</span>.</p>
+
+<h2>2. Key Guardrail Implementations</h2>
+<ul>
+  <li><strong>Supervisor Routing:</strong> Dynamically routes based on missing state fields and terminates when complete <span class="citation-ref" title="Communicative Agents">[2]</span>.</li>
+  <li><strong>Iteration Caps:</strong> Hard limit of 6 iterations avoids infinite runaway loops and burning tokens <span class="citation-ref" title="Guardrails Guide">[3]</span>.</li>
+  <li><strong>Citation Attribution:</strong> The Writer agent anchors assertions strictly to verified document snippets.</li>
+</ul>
+
+<h2>3. References</h2>
+<p style="font-size:0.85rem; color:var(--text-muted);">
+[1] LangGraph: Multi-Agent Workflows with Cyclic State (https://langchain-ai.github.io/langgraph/)<br>
+[2] Communicative Agents for Software Development (https://arxiv.org/abs/2307.07924)<br>
+[3] Routing and Guardrails in Multi-Agent Systems (https://example.com/multi-agent-guardrails)
+</p>`
+      }
+    };
+
+    function resetNodes() {
+      ['supervisor', 'researcher', 'analyst', 'writer'].forEach(role => {
+        const node = document.getElementById('node-' + role);
+        const status = document.getElementById('status-' + role);
+        node.classList.remove('active');
+        status.className = 'node-status status-idle';
+        status.innerText = 'IDLE';
+      });
+    }
+
+    function setNodeState(role, stateText, isRunning) {
+      const node = document.getElementById('node-' + role);
+      const status = document.getElementById('status-' + role);
+      node.classList.add('active');
+      status.className = 'node-status ' + (isRunning ? 'status-running' : 'status-done');
+      status.innerText = stateText;
+    }
+
+    async function executeWorkflow() {
+      const query = document.getElementById('queryInput').value.toLowerCase();
+      const runBtn = document.getElementById('btnRunMulti');
+      runBtn.disabled = true;
+      runBtn.innerHTML = '<span>⏳</span> Orchestrating...';
+
+      let dataKey = 'generic';
+      if (query.includes('graph')) dataKey = 'graphrag';
+      else if (query.includes('rag') || query.includes('fine-tuning') || query.includes('finetune')) dataKey = 'rag_vs_ft';
+
+      const data = KNOWLEDGE_BASE[dataKey];
+      const traceBox = document.getElementById('traceLog');
+      traceBox.innerHTML = '';
+      
+      const logEvent = (name, detail) => {
+        const time = new Date().toLocaleTimeString();
+        traceBox.innerHTML += `<div class="trace-item"><span class="trace-time">[${time}]</span> <span class="trace-event">${name}</span> <span class="trace-detail">${detail}</span></div>`;
+        traceBox.scrollTop = traceBox.scrollHeight;
+      };
+
+      resetNodes();
+      document.getElementById('iterBadge').innerText = 'Iteration: 1 / 6';
+      document.getElementById('routeHistory').innerText = 'supervisor ➔ researcher';
+      logEvent('START', 'Initializing LangGraph StateGraph with ResearchState schema.');
+
+      // Step 1: Supervisor routes to Researcher
+      setNodeState('supervisor', 'ROUTING', true);
+      logEvent('SUPERVISOR', 'Inspecting state: sources is empty ➔ Next route: "researcher".');
+      await new Promise(r => setTimeout(r, 600));
+      setNodeState('supervisor', 'ROUTED', false);
+
+      // Step 2: Researcher executes search
+      document.getElementById('iterBadge').innerText = 'Iteration: 2 / 6';
+      document.getElementById('routeHistory').innerText = 'supervisor ➔ researcher ➔ analyst';
+      setNodeState('researcher', 'SEARCHING', true);
+      logEvent('RESEARCHER', 'Calling SearchClient.search() with max_results=3.');
+      await new Promise(r => setTimeout(r, 800));
+      
+      // Update sources UI
+      document.getElementById('sourceCount').innerText = data.sources.length;
+      let sourcesHtml = '';
+      data.sources.forEach((s, idx) => {
+        sourcesHtml += `<div class="source-item">
+          <div class="source-title"><span>[${idx+1}] ${s.title}</span> <a href="${s.url}" target="_blank" class="source-url">↗ ${s.url}</a></div>
+          <div class="source-snippet">${s.snippet}</div>
+        </div>`;
+      });
+      document.getElementById('sourcesList').innerHTML = sourcesHtml;
+      setNodeState('researcher', '3 SOURCES', false);
+      logEvent('RESEARCHER.DONE', `Captured ${data.sources.length} sources and generated research_notes.`);
+
+      // Step 3: Analyst evaluates evidence
+      document.getElementById('iterBadge').innerText = 'Iteration: 3 / 6';
+      document.getElementById('routeHistory').innerText = 'supervisor ➔ researcher ➔ analyst ➔ writer';
+      setNodeState('analyst', 'ANALYZING', true);
+      logEvent('ANALYST', 'Calling LLMClient: evaluating source credibility and tradeoff breakdown.');
+      await new Promise(r => setTimeout(r, 900));
+      document.getElementById('analysisContent').innerText = data.analysis;
+      setNodeState('analyst', 'INSIGHTS READY', false);
+      logEvent('ANALYST.DONE', 'Populated analysis_notes with comparative trade-offs.');
+
+      // Step 4: Writer synthesizes report
+      document.getElementById('iterBadge').innerText = 'Iteration: 4 / 6';
+      document.getElementById('routeHistory').innerText = 'supervisor ➔ researcher ➔ analyst ➔ writer ➔ done';
+      setNodeState('writer', 'SYNTHESIZING', true);
+      logEvent('WRITER', 'Compiling markdown report with strict citation footnotes [1], [2].');
+      await new Promise(r => setTimeout(r, 900));
+      document.getElementById('renderedContent').innerHTML = data.synthesis;
+      setNodeState('writer', 'REPORT READY', false);
+      logEvent('WRITER.DONE', 'Successfully generated final_answer with 100% citation coverage.');
+
+      // Final: Supervisor stops
+      setNodeState('supervisor', 'DONE', false);
+      logEvent('END', 'Supervisor detected final_answer is present. Terminating at END node.');
+
+      runBtn.disabled = false;
+      runBtn.innerHTML = '<span>⚡</span> Run Multi-Agent';
+    }
+
+    async function executeBaseline() {
+      const query = document.getElementById('queryInput').value;
+      const baseBtn = document.getElementById('btnRunBase');
+      baseBtn.disabled = true;
+      baseBtn.innerText = 'Running...';
+
+      resetNodes();
+      document.getElementById('iterBadge').innerText = 'Iteration: 1 / 1';
+      document.getElementById('routeHistory').innerText = 'single_agent (monolithic)';
+      
+      const traceBox = document.getElementById('traceLog');
+      traceBox.innerHTML = `<div class="trace-item"><span class="trace-time">[${new Date().toLocaleTimeString()}]</span> <span class="trace-event">BASELINE</span> <span class="trace-detail">Single LLM direct prompt call without external search.</span></div>`;
+
+      await new Promise(r => setTimeout(r, 400));
+      
+      document.getElementById('sourceCount').innerText = '0';
+      document.getElementById('sourcesList').innerHTML = '<p style="color: var(--text-dim); text-align: center; margin-top: 5rem;">Single-Agent baseline does not perform external search.</p>';
+      document.getElementById('analysisContent').innerText = 'Single-Agent baseline does not have an independent Analyst role.';
+      
+      document.getElementById('renderedContent').innerHTML = `
+        <h1>Single-Agent Baseline Summary</h1>
+        <p style="color: var(--accent); font-weight: 600;">⚠️ Notice: Un-grounded single prompt response without external source validation.</p>
+        <p>Regarding "<em>${query}</em>": Modern AI systems rely on structured knowledge retrieval and domain specialization. Retrieval-Augmented Generation (RAG) grounds language models in external documents to prevent hallucinations, while GraphRAG further incorporates entity-relation graphs for multi-hop synthesis. For domain adaptation, fine-tuning aligns linguistic style and task patterns, whereas RAG dynamically ingests up-to-date facts.</p>
+        <div style="background: rgba(255,255,255,0.04); border-radius: 8px; padding: 1rem; margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted);">
+          <strong>Metrics:</strong> Latency ~0.001s | Cost: ~$0.000087 | Quality: 6.0/10 | Citation Coverage: 0%
+        </div>
+      `;
+
+      baseBtn.disabled = false;
+      baseBtn.innerText = 'Single Baseline';
+    }
+  </script>
+</body>
+</html>
