@@ -113,5 +113,15 @@ Cách khắc phục (chọn 1 trong 3):
 
 Mỗi nhóm trả lời 2 câu:
 
-1. Case nào nên dùng multi-agent? Vì sao?
-2. Case nào không nên dùng multi-agent? Vì sao?
+1. **Case nào nên dùng multi-agent? Vì sao?**
+   - **Các bài toán phức tạp, nhiều chặng độc lập (multi-stage workflows)**: Như deep research, code generation + review + testing, complex report synthesis.
+   - **Cần tách biệt vai trò (Separation of Concerns)**: Mỗi agent tập trung vào một prompt chuyên biệt (Researcher tìm nguồn, Analyst phân tích so sánh, Writer định dạng & trích dẫn) tránh tình trạng *context dilution* và giảm hallucination.
+   - **Cần auditability, debuggability và dynamic routing**: Khi luồng xử lý cần rẽ nhánh theo trạng thái thực tế (ví dụ: thiếu nguồn thì tìm lại, phân tích chưa đạt thì retry, lỗi bước nào thì trace và debug đúng bước đó).
+   - **Tích hợp nhiều toolset/quyền hạn khác nhau**: Tách biệt agent có quyền gọi API/viết code nguy hiểm với agent chỉ phân tích/tổng hợp.
+
+2. **Case nào không nên dùng multi-agent? Vì sao?**
+   - **Các tác vụ đơn giản, một bước (single-step tasks)**: Như tóm tắt một đoạn văn bản ngắn, phân loại cảm xúc (sentiment analysis), dịch thuật, trả lời câu hỏi trực tiếp (Q&A cơ bản).
+   - **Yêu cầu độ trễ cực thấp (Ultra-low latency / Real-time applications)**: Multi-agent có độ trễ tích lũy (overhead) do phải qua nhiều bước điều phối của Supervisor và nhiều lượt gọi LLM tuần tự.
+   - **Ngân sách token eo hẹp (Cost-sensitive systems)**: Mỗi bước agent tiêu tốn thêm token vào prompt và output trung gian, dẫn đến chi phí vận hành cao hơn gấp 3-5 lần so với single-call.
+   - **Quy trình hoàn toàn tuần tự, cố định (Deterministic linear pipelines)**: Khi luồng chạy 100% không cần rẽ nhánh hay tự thích ứng, dùng standard Python chaining / LangChain chain đơn giản sẽ ít bug và dễ bảo trì hơn LangGraph multi-agent phức tạp.
+
