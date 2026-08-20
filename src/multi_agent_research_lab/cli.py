@@ -1,5 +1,7 @@
 """Command-line entrypoint for the lab starter."""
 
+import csv
+import json
 from pathlib import Path
 from time import perf_counter
 from typing import Annotated
@@ -135,6 +137,98 @@ def multi_agent(
         )
     )
     console.print(f"[dim]Completed in {duration:.3f}s across {state.iteration} iterations.[/dim]")
+
+
+@app.command("list-topics")
+def list_topics(
+    manifest_path: Annotated[
+        str, typer.Option("--manifest", "-m", help="Path to manifest.csv")
+    ] = "data/manifest.csv",
+) -> None:
+    """List all 30 benchmark topics available in the offline corpus."""
+    _init()
+    p = Path(manifest_path)
+    if not p.exists():
+        console.print(f"[red]Manifest file not found: {p}[/red]")
+        raise typer.Exit(code=1)
+
+    table = Table(title="AI Agent Offline Research Corpus (30 Topics)")
+    table.add_column("#", justify="right", style="cyan")
+    table.add_column("Topic ID", style="bold green")
+    table.add_column("Topic Title", style="white")
+    table.add_column("Prose Words", justify="right", style="magenta")
+    table.add_column("Sources", justify="right", style="blue")
+    table.add_column("Facts", justify="right", style="yellow")
+
+    with open(p, encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            table.add_row(
+                row.get("topic_number", ""),
+                row.get("topic_id", ""),
+                row.get("title", ""),
+                row.get("approx_embedded_prose_words", ""),
+                row.get("source_documents", ""),
+                row.get("facts", ""),
+            )
+
+    console.print(table)
+
+
+@app.command("topic")
+def run_topic_benchmark(
+    topic_id: Annotated[
+        str, typer.Option("--id", "-i", help="Topic number (1-30) or ID (AIAGENT-01)")
+    ] = "1",
+) -> None:
+    """Execute both Baseline and Multi-Agent on a specific corpus topic and compare results."""
+    _init()
+    corpus_dir = Path("data/topics")
+    target_file = None
+
+    for f in corpus_dir.glob("*.json"):
+        if (
+            f.name.startswith(f"{int(topic_id):02d}_")
+            if topic_id.isdigit()
+            else topic_id.lower() in f.name.lower()
+        ):
+            target_file = f
+            break
+
+    if not target_file:
+        console.print(f"[red]Could not find topic: {topic_id}[/red]")
+        raise typer.Exit(code=1)
+
+    data = json.loads(target_file.read_text(encoding="utf-8"))
+    topic_name = data.get("topic", {}).get("name", "Unknown Topic")
+    question = data.get("topic", {}).get("research_question", topic_name)
+
+    panel_msg = (
+        f"[bold cyan]Topic:[/bold cyan] {topic_name}\n"
+        f"[bold yellow]Q:[/bold yellow] {question}"
+    )
+    console.print(Panel(panel_msg, title="Corpus Benchmark Execution"))
+
+    # 1. Run Baseline
+    _, m_base = run_benchmark("single_agent", question, run_baseline_query)
+
+    # 2. Run Multi-Agent
+    _, m_multi = run_benchmark("multi_agent", question, run_multi_agent_query)
+
+    table = Table(title=f"Benchmark Evaluation: {topic_name}")
+    table.add_column("Mode", style="cyan")
+    table.add_column("Latency (s)", justify="right")
+    table.add_column("Cost ($)", justify="right")
+    table.add_column("Quality", justify="right")
+    table.add_column("Citation Cov.", justify="right")
+
+    for m in [m_base, m_multi]:
+        cost = f"${m.estimated_cost_usd:.6f}" if m.estimated_cost_usd is not None else "N/A"
+        quality = f"{m.quality_score:.1f}/10" if m.quality_score is not None else "N/A"
+        citation = f"{m.citation_coverage:.0%}" if m.citation_coverage is not None else "N/A"
+        table.add_row(m.run_name, f"{m.latency_seconds:.3f}", cost, quality, citation)
+
+    console.print(table)
 
 
 @app.command()

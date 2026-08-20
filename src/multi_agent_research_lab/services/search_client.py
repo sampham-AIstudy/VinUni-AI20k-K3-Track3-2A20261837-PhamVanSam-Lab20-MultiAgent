@@ -1,9 +1,10 @@
-"""Search client abstraction for ResearcherAgent."""
+"""Search client abstraction for ResearcherAgent supporting live API and offline corpus."""
 
 import json
 import logging
 import ssl
 import urllib.request
+from pathlib import Path
 
 from multi_agent_research_lab.core.config import get_settings
 from multi_agent_research_lab.core.schemas import SourceDocument
@@ -12,11 +13,17 @@ logger = logging.getLogger(__name__)
 
 
 class SearchClient:
-    """Provider-agnostic search client supporting Tavily and domain-aware mock search."""
+    """Provider-agnostic search client supporting Tavily and offline benchmark corpus."""
 
-    def __init__(self, api_key: str | None = None) -> None:
+    def __init__(
+        self,
+        api_key: str | None = None,
+        corpus_dir: str | Path = "data/topics",
+    ) -> None:
         settings = get_settings()
         self.api_key = api_key if api_key is not None else settings.tavily_api_key
+        self.corpus_dir = Path(corpus_dir)
+        self._corpus_cache: list[dict] | None = None
 
     def search(self, query: str, max_results: int = 5) -> list[SourceDocument]:
         """Search for documents relevant to a query."""
@@ -24,8 +31,14 @@ class SearchClient:
             try:
                 return self._search_tavily(query, max_results)
             except Exception as e:
-                logger.warning(f"Tavily search failed: {e}. Falling back to mock search.")
-        return self._search_mock(query, max_results)
+                logger.warning(f"Tavily search failed: {e}. Falling back to offline corpus.")
+
+        # Try searching offline benchmark corpus first
+        corpus_results = self._search_corpus(query, max_results)
+        if corpus_results:
+            return corpus_results
+
+        return self._search_mock_fallback(query, max_results)
 
     def _search_tavily(self, query: str, max_results: int = 5) -> list[SourceDocument]:
         """Call Tavily Search API via HTTPS with SSL context."""
@@ -69,129 +82,130 @@ class SearchClient:
             )
         return results[:max_results]
 
-    def _search_mock(self, query: str, max_results: int = 5) -> list[SourceDocument]:
-        """Deterministic keyword-aware mock search results."""
-        q_lower = query.lower()
+    def _load_corpus(self) -> list[dict]:
+        """Load and cache JSON topics from data/topics directory."""
+        if self._corpus_cache is not None:
+            return self._corpus_cache
 
-        if "graphrag" in q_lower or "graph" in q_lower:
-            mock_docs = [
-                SourceDocument(
-                    title="From Local to Global: A Graph RAG Approach",
-                    url="https://arxiv.org/abs/2404.16130",
-                    snippet=(
-                        "GraphRAG combines LLM knowledge graphs with community detection "
-                        "to generate hierarchical summaries for broad dataset queries."
-                    ),
-                    metadata={"source": "arXiv:2404.16130", "year": 2024},
-                ),
-                SourceDocument(
-                    title="Graph Retrieval-Augmented Generation: A Survey",
-                    url="https://arxiv.org/abs/2408.08921",
-                    snippet=(
-                        "Survey on graph indexing, entity linking, and multi-hop reasoning "
-                        "pathways that outperform vector-only retrieval."
-                    ),
-                    metadata={"source": "arXiv:2408.08921", "year": 2024},
-                ),
-                SourceDocument(
-                    title="Microsoft GraphRAG Production Best Practices",
-                    url="https://github.com/microsoft/graphrag",
-                    snippet=(
-                        "Modular pipeline for hierarchical text extraction, graph construction, "
-                        "Leiden clustering, and prompt tuning."
-                    ),
-                    metadata={"source": "GitHub", "year": 2024},
-                ),
-            ]
-        elif "fine-tuning" in q_lower or "finetune" in q_lower or "rag" in q_lower:
-            mock_docs = [
-                SourceDocument(
-                    title="RAG vs Fine-tuning: Architectural Trade-offs",
-                    url="https://example.com/rag-vs-finetuning",
-                    snippet=(
-                        "RAG excels at dynamic knowledge grounding with instant updates, "
-                        "whereas fine-tuning is optimal for format and style adaptation."
-                    ),
-                    metadata={"category": "Enterprise Guide", "year": 2024},
-                ),
-                SourceDocument(
-                    title="Retrieval-Augmented Generation for NLP Tasks",
-                    url="https://arxiv.org/abs/2005.11401",
-                    snippet=(
-                        "Benchmark showing how non-parametric memory retrieval significantly "
-                        "reduces factual hallucination in generation tasks."
-                    ),
-                    metadata={"source": "NeurIPS", "year": 2020},
-                ),
-                SourceDocument(
-                    title="Parameter-Efficient Fine-Tuning with LoRA",
-                    url="https://arxiv.org/abs/2106.09685",
-                    snippet=(
-                        "Low-rank adaptation enables cost-effective model specialization "
-                        "without full weight retuning."
-                    ),
-                    metadata={"source": "ICLR", "year": 2022},
-                ),
-            ]
-        elif "multi-agent" in q_lower or "supervisor" in q_lower or "langgraph" in q_lower:
-            mock_docs = [
-                SourceDocument(
-                    title="LangGraph: Multi-Agent Workflows with Cyclic State",
-                    url="https://langchain-ai.github.io/langgraph/",
-                    snippet=(
-                        "Framework for stateful multi-actor LLM applications with "
-                        "human-in-the-loop, time-travel, and supervisor routing."
-                    ),
-                    metadata={"category": "Framework Docs", "year": 2024},
-                ),
-                SourceDocument(
-                    title="Communicative Agents for Software Development",
-                    url="https://arxiv.org/abs/2307.07924",
-                    snippet=(
-                        "Role specialization (programmer, reviewer, tester) mitigates context "
-                        "dilution and improves multi-step execution."
-                    ),
-                    metadata={"source": "ACL", "year": 2023},
-                ),
-                SourceDocument(
-                    title="Routing and Guardrails in Multi-Agent Systems",
-                    url="https://example.com/multi-agent-guardrails",
-                    snippet=(
-                        "Production patterns including iteration limits, circuit breakers, "
-                        "and strict shared state schema validation."
-                    ),
-                    metadata={"category": "Engineering Guide", "year": 2024},
-                ),
-            ]
-        else:
-            mock_docs = [
-                SourceDocument(
-                    title=f"Technical Research: {query[:40]}",
-                    url="https://example.com/technical-overview",
-                    snippet=(
-                        f"Literature review and findings concerning '{query}'. "
-                        "Highlights architectures, trade-offs, and benchmarks."
-                    ),
-                    metadata={"category": "Research Overview"},
-                ),
-                SourceDocument(
-                    title="Modern LLM Architectures and Evaluation",
-                    url="https://example.com/llm-eval-frameworks",
-                    snippet=(
-                        "State-of-the-art evaluation metrics comparing latency, cost, "
-                        "groundedness, and task completion."
-                    ),
-                    metadata={"category": "Benchmark Report"},
-                ),
-                SourceDocument(
-                    title="Best Practices for Production AI Agents",
-                    url="https://example.com/production-ai-agents",
-                    snippet=(
-                        "Guidelines on state management, observability, citations, "
-                        "and fallback recovery mechanisms."
-                    ),
-                    metadata={"category": "Best Practices"},
-                ),
-            ]
+        topics: list[dict] = []
+        if self.corpus_dir.exists() and self.corpus_dir.is_dir():
+            for json_path in sorted(self.corpus_dir.glob("*.json")):
+                try:
+                    data = json.loads(json_path.read_text(encoding="utf-8"))
+                    topics.append(data)
+                except Exception as exc:
+                    logger.warning("Could not parse %s: %exc", json_path, exc)
 
-        return mock_docs[:max_results]
+        self._corpus_cache = topics
+        return topics
+
+    def _search_corpus(self, query: str, max_results: int = 5) -> list[SourceDocument]:
+        """Search across offline benchmark corpus topics, articles, and sources."""
+        topics = self._load_corpus()
+        if not topics:
+            return []
+
+        q_terms = set(query.lower().split())
+        scored_docs: list[tuple[float, SourceDocument]] = []
+
+        for topic_obj in topics:
+            topic_info = topic_obj.get("topic", {})
+            topic_name = topic_info.get("name", "").lower()
+            topic_tags = [t.lower() for t in topic_info.get("tags", [])]
+            kb = topic_obj.get("knowledge_base", {})
+
+            # Topic match bonus
+            topic_score = sum(2.0 for term in q_terms if term in topic_name)
+            topic_score += sum(1.5 for term in q_terms if any(term in tag for tag in topic_tags))
+
+            # 1. Inspect source_documents in knowledge base
+            for src in kb.get("source_documents", []):
+                title = src.get("title", "")
+                snippet = src.get("summary", src.get("snippet", ""))
+                src_id = src.get("source_id", "SRC")
+                url = src.get("url", f"corpus://{src_id}")
+                is_synthetic = src.get("is_synthetic", False)
+
+                content_lower = (title + " " + snippet).lower()
+                doc_score = topic_score + sum(1.0 for term in q_terms if term in content_lower)
+
+                if doc_score > 0:
+                    scored_docs.append(
+                        (
+                            doc_score,
+                            SourceDocument(
+                                title=f"[{src_id}] {title}",
+                                url=url,
+                                snippet=snippet,
+                                metadata={
+                                    "source_id": src_id,
+                                    "is_synthetic": is_synthetic,
+                                    "topic_id": topic_obj.get("benchmark_metadata", {}).get(
+                                        "topic_id"
+                                    ),
+                                },
+                            ),
+                        )
+                    )
+
+            # 2. Inspect knowledge_articles
+            for art in kb.get("knowledge_articles", []):
+                title = art.get("title", "")
+                content = art.get("content", "")
+                art_id = art.get("article_id", "ART")
+                content_lower = (title + " " + content[:400]).lower()
+                art_score = topic_score + sum(1.0 for term in q_terms if term in content_lower)
+
+                if art_score > 0:
+                    scored_docs.append(
+                        (
+                            art_score,
+                            SourceDocument(
+                                title=f"[{art_id}] {title}",
+                                url=f"corpus://{art_id}",
+                                snippet=content[:280] + "...",
+                                metadata={
+                                    "article_id": art_id,
+                                    "topic_id": topic_obj.get("benchmark_metadata", {}).get(
+                                        "topic_id"
+                                    ),
+                                },
+                            ),
+                        )
+                    )
+
+        # Sort by relevance score descending
+        scored_docs.sort(key=lambda x: x[0], reverse=True)
+        return [doc for _, doc in scored_docs[:max_results]]
+
+    def _search_mock_fallback(self, query: str, max_results: int = 5) -> list[SourceDocument]:
+        """Built-in heuristic fallback if data/topics is not present."""
+        return [
+            SourceDocument(
+                title=f"Technical Research Overview: {query[:40]}",
+                url="https://example.com/technical-overview",
+                snippet=(
+                    f"Literature review and findings concerning '{query}'. "
+                    "Highlights architectures, trade-offs, and benchmarks."
+                ),
+                metadata={"category": "Research Overview"},
+            ),
+            SourceDocument(
+                title="Modern LLM Architectures and Evaluation",
+                url="https://example.com/llm-eval-frameworks",
+                snippet=(
+                    "State-of-the-art evaluation metrics comparing latency, cost, "
+                    "groundedness, and task completion."
+                ),
+                metadata={"category": "Benchmark Report"},
+            ),
+            SourceDocument(
+                title="Best Practices for Production AI Agents",
+                url="https://example.com/production-ai-agents",
+                snippet=(
+                    "Guidelines on state management, observability, citations, "
+                    "and fallback recovery mechanisms."
+                ),
+                metadata={"category": "Best Practices"},
+            ),
+        ][:max_results]
